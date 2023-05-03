@@ -1,3 +1,6 @@
+from utils import *
+
+
 def lower_and_pad(file_data):
     """
     :param file_data: a file to be made lower case and each sentence to padded
@@ -42,20 +45,47 @@ def replace_words_appeared_once_with_unk(data: list[list], words_appeared_once: 
                 sentence[i] = '<unk>'
 
 
-def data_list_to_str(data: list[list]):
-    return '\n'.join([' '.join(sentence) for sentence in data])
+def write_data_to_file(data: str, file_obj=None, file_path=None):
+    if not file_obj:
+        if not file_path:
+            raise Exception('No path and file object provided')
+        file_obj = open(file_path, 'w')
+
+    file_obj.write(data)
+    file_obj.close()
 
 
-def pre_process_data(training_data_path: str, pre_processed_data_path: str):
-    with open(training_data_path, 'r') as training_data:
-        with open(pre_processed_data_path, 'w') as pre_processed_data:
-            processing_data, word_count = lower_and_pad(training_data)
+def pre_process_training_data(training_data_path: str, pre_processed_data_path: str):
+    with open(training_data_path, 'r') as training_corpus:
+        with open(pre_processed_data_path, 'w') as pre_processed_training_corpus:
+            processing_data, word_count = lower_and_pad(training_corpus)
             words_appeared_once = get_words_appeared_once_only(word_count)
             replace_words_appeared_once_with_unk(processing_data, words_appeared_once)
-            pre_processed_data.write(data_list_to_str(processing_data))
-
-            # +2 bc not counted </s> and <unk>
-            print('Unique Words:', len(word_count) + 2)
+            pre_processed_training_corpus.write(data_list_to_str(processing_data))
 
 
-pre_process_data('Data/train-Spring2023.txt', 'Data/pre_processed_training_data.txt')
+def lower_and_pad_file(data_path: str, save_path: str):
+    with open(data_path) as file:
+        with open(save_path, 'w') as output_file:
+            lower_and_padded_data, word_count = lower_and_pad(file)
+            output_file.write(data_list_to_str(lower_and_padded_data))
+
+
+def pre_process_test_data(data_path: str, save_path: str, pre_processed_training_path):
+    with open(data_path) as file:
+        with open(save_path, 'w') as output_file:
+            with open(pre_processed_training_path) as training_file:
+                training_token_counter = count_token(file_to_list_list(training_file))
+                lower_and_padded_data, word_count = lower_and_pad(file)
+
+                for sentence in lower_and_padded_data:
+                    for i in range(len(sentence)):
+                        if sentence[i] not in training_token_counter:
+                            sentence[i] = '<unk>'
+
+                output_file.write(data_list_to_str(lower_and_padded_data))
+
+
+# pre_process_test_data('./Data/test.txt', './1.txt', './Data/pre_processed_training_data.txt')
+# pre_process_data('./Data/train-Spring2023.txt', './Data/pre_processed_training_data.txt')
+# pre_process_data('./Data/test.txt', './Data/pre_processed_test_corpus.txt')

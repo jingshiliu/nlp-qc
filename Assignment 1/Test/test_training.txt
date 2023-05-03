@@ -1,0 +1,3 @@
+<s> a unigram maximum likelihood model . </s>
+<s> a bigram maximum likelihood model . </s>
+<s> a bigram model with add-one smoothing . </s>
