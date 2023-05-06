@@ -128,3 +128,16 @@ class NaiveBayesClassifier:
 
 # ------------------------------------------ main (training and evaluate) ------------------------------------------- #
 
+# Train a classifier use a small corpus
+def problem_2b():
+    preprocess_folder("./data/movie_review_small/action", "./preprocessed/movie_review_small/action")
+    preprocess_folder("./data/movie_review_small/comedy", "./preprocessed/movie_review_small/comedy")
+
+    model = naive_bayes(class_1_folder_path="./preprocessed/movie_review_small/action",
+                        class_2_folder_path="./preprocessed/movie_review_small/comedy",
+                        result_model_path="./models/movie_review_small.NB",
+                        class_1="action",
+                        class_2="comedy"
+                        )
+
+
