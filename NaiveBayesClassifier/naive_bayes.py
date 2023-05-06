@@ -1,7 +1,10 @@
 import os
 import json
 
+from pre_process import preprocess_comment, preprocess_folder
+
 VOCAB_PATH = './data/imdb.vocab'
+
 
 # --------------------------------------------------- load file ------------------------------------------------------ #
 
@@ -21,6 +24,7 @@ def save_file(file_content, file_path):
 def load_json(file_path: str) -> dict:
     with open(file_path) as file:
         return json.load(file)
+
 
 def load_one_vector(vector_file_path: str) -> dict:
     return load_json(vector_file_path)
@@ -66,17 +70,19 @@ def naive_bayes_class_recognizer(vector_folder_path):
     return class_recognizer, total_token
 
 
-def naive_bayes(pos_folder_path, neg_folder_path, result_model_path):
-    neg_recognizer, neg_total_token = naive_bayes_class_recognizer('./preprocessed/neg')
-    pos_recognizer, pos_total_token = naive_bayes_class_recognizer('./preprocessed/pos')
+def naive_bayes(class_1_folder_path, class_2_folder_path, result_model_path, class_1="pos", class_2="neg"):
+    class_1_recognizer, class_1_total_token = naive_bayes_class_recognizer(class_1_folder_path)
+    class_2_recognizer, class_2_total_token = naive_bayes_class_recognizer(class_2_folder_path)
 
-    neg_prior_prob = neg_total_token / (neg_total_token + pos_total_token)
-    pos_prior_prob = pos_total_token / (neg_total_token + pos_total_token)
+    class_1_prior_prob = class_1_total_token / (class_1_total_token + class_2_total_token)
+    class_2_prior_prob = class_2_total_token / (class_1_total_token + class_2_total_token)
 
-    naive_bayes_classifier = {"neg": neg_recognizer,
-                              "pos": pos_recognizer,
-                              "neg_prior": neg_prior_prob,
-                              "pos_prior": pos_prior_prob
+    naive_bayes_classifier = {class_1: class_1_recognizer,
+                              class_2: class_2_recognizer,
+                              f'{class_1}_prior': class_1_prior_prob,
+                              f'{class_2}_prior': class_2_prior_prob,
+                              "class_1": class_1,
+                              "class_2": class_2
                               }
 
     save_file(naive_bayes_classifier, result_model_path)
@@ -84,3 +90,42 @@ def naive_bayes(pos_folder_path, neg_folder_path, result_model_path):
 
 
 # ----------------------------------------------- evaluate test data ------------------------------------------------ #
+
+def compute_prob(comment: str | list, class_recognizer: dict, prior_prob: float) -> float:
+    if type(comment) is str:
+        comment = comment.split()
+
+    prob = prior_prob
+    for word in comment:
+        if word not in class_recognizer:
+            continue
+        prob *= class_recognizer[word]
+    return prob
+
+
+class NaiveBayesClassifier:
+    def __init__(self, path_to_model):
+        self.model = None
+        self.class_1 = None
+        self.class_2 = None
+        if path_to_model:
+            self.load_model(path_to_model)
+
+    def load_model(self, path_to_model: str):
+        with open(path_to_model) as model_file:
+            self.model = json.load(model_file)
+            self.class_1 = self.model["class_1"]
+            self.class_2 = self.model["class_2"]
+
+    def classify(self, comment: str):
+        comment = preprocess_comment(comment)
+        word_list = comment.split()
+        class_1_prob = compute_prob(word_list, self.model[self.class_1], self.model[f"{self.class_1}_prior"])
+        class_2_prob = compute_prob(word_list, self.model['neg'], self.model[f"{self.class_2}_prior"])
+
+        return self.class_1 if class_1_prob > class_2_prob else self.class_2
+
+
+# ------------------------------------------ main (training and evaluate) ------------------------------------------- #
+
+
