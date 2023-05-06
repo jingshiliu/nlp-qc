@@ -104,11 +104,11 @@ def compute_prob(comment: str | list, class_recognizer: dict, prior_prob: float)
 
 
 class NaiveBayesClassifier:
-    def __init__(self, path_to_model):
-        self.model = None
+    def __init__(self, path_to_model="", model=None):
+        self.model = model
         self.class_1 = None
         self.class_2 = None
-        if path_to_model:
+        if not model and path_to_model:
             self.load_model(path_to_model)
 
     def load_model(self, path_to_model: str):
@@ -127,5 +127,4 @@ class NaiveBayesClassifier:
 
 
 # ------------------------------------------ main (training and evaluate) ------------------------------------------- #
-
 
