@@ -4,8 +4,26 @@ import json
 
 VOCAB_PATH = './data/imdb.vocab'
 
+# --------------------------------------------------- load file ------------------------------------------------------ #
+
+def load_vocab():
+    vocabs = set()
+    with open(VOCAB_PATH) as vocab_file:
+        for word in vocab_file:
+            vocabs.add(word.strip())
+    return vocabs
+
+
+def save_file(file_content, file_path):
+    with open(file_path, 'w') as file:
+        json.dump(file_content, file)
+
+
+# ------------------------------------------------ preprocess files -------------------------------------------------- #
+
 def is_punc(char):
     return char in string.punctuation
+
 
 def lowercase_sentence(comment: str) -> str:
     return comment.lower()
@@ -26,20 +44,16 @@ def separate_punctuation(comment: str) -> str:
     return ' '.join(res)
 
 
+def preprocess_comment(comment: str) -> str:
+    return separate_punctuation(lowercase_sentence(comment))
+
+
 def preprocess_file(file_path: str) -> str:
     with open(file_path) as file:
         comment = ' '.join([line.strip() for line in file])
         comment = lowercase_sentence(comment)
         comment = separate_punctuation(comment)
         return comment
-
-
-def load_vocab():
-    vocabs = set()
-    with open(VOCAB_PATH) as vocab_file:
-        for word in vocab_file:
-            vocabs.add(word.strip())
-    return vocabs
 
 
 def build_bag_of_word_vector(comment: str, vocabs: set):
@@ -53,11 +67,6 @@ def build_bag_of_word_vector(comment: str, vocabs: set):
     return vector
 
 
-def save_file(file_content, file_path):
-    with open(file_path, 'w') as file:
-        json.dump(file_content, file)
-
-
 def preprocess_folder(folder_path: str, output_folder: str):
     vocabs = load_vocab()
 
@@ -65,6 +74,9 @@ def preprocess_folder(folder_path: str, output_folder: str):
         comment = preprocess_file(f'{folder_path}/{filename}')
         vector = build_bag_of_word_vector(comment, vocabs)
         save_file(vector, f'{output_folder}/{filename.split(".")[0]}.json')
+
+
+# ---------------------------------------------------- testing  ----------------------------------------------------- #
 
 
 def testing():
