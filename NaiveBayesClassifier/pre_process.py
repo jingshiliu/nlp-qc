@@ -2,13 +2,12 @@ import string
 import os
 import json
 
-VOCAB_PATH = './data/imdb.vocab'
 
 # --------------------------------------------------- load file ------------------------------------------------------ #
 
-def load_vocab():
+def load_vocab(vocab_path):
     vocabs = set()
-    with open(VOCAB_PATH) as vocab_file:
+    with open(vocab_path) as vocab_file:
         for word in vocab_file:
             vocabs.add(word.strip())
     return vocabs
@@ -67,8 +66,8 @@ def build_bag_of_word_vector(comment: str, vocabs: set):
     return vector
 
 
-def preprocess_folder(folder_path: str, output_folder: str):
-    vocabs = load_vocab()
+def preprocess_folder(folder_path: str, output_folder: str, vocab_path=""):
+    vocabs = load_vocab(vocab_path)
 
     for filename in os.listdir(folder_path):
         comment = preprocess_file(f'{folder_path}/{filename}')
@@ -92,5 +91,5 @@ def testing():
 
 
 # testing()
-preprocess_folder('./data/train/neg', './preprocessed/neg')
-preprocess_folder('./data/train/pos', './preprocessed/pos')
+# preprocess_folder('./data/train/neg', './preprocessed/neg')
+# preprocess_folder('./data/train/pos', './preprocessed/pos')
