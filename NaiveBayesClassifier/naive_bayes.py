@@ -14,7 +14,7 @@ def load_vocab(vocab_path) -> set:
     return vocabs
 
 
-def save_file(file_content, file_path):
+def save_model(file_content, file_path):
     with open(file_path, 'w') as file:
         json.dump(file_content, file)
 
@@ -34,20 +34,32 @@ def load_naive_bayes_classifier(classifier_path: str) -> dict:
 
 # ------------------------------------------ train naive bayes classifier -------------------------------------------- #
 
-def initialize_counter(vocab_path) -> dict:
+def initialize_counter(vocabs) -> dict:
     '''
     load vocab and build  a dictionary that contains all vocab as key, and value set to 0
     :return: a dictionary that contains all vocab as key, and value set to 0
     '''
-    vocabs = load_vocab(vocab_path)
+
     return {vocab: 0 for vocab in vocabs}
 
 
-def aggregate_vectors_into_counter(counter: dict, vector_folder_path: str):
-    for vector_filename in os.listdir(vector_folder_path):
-        vector = load_one_vector(f'{vector_folder_path}/{vector_filename}')
-        for word, freq in vector.items():
-            counter[word] += freq
+def training_file_decoder(training_file_path: str):
+    with open(training_file_path) as file:
+        line = file.readline()
+        while line:
+            line = line.trim()
+            line = line.split('#####')
+            class_type, vector = line[0], json.loads(line[1])
+            yield class_type, vector
+            line = file.readline()
+
+
+def aggregate_vector_into_counter(counter: dict, vector: dict):
+    total_token = 0
+    for word, freq in vector.items():
+        counter[word] += freq
+        total_token += freq
+    return total_token
 
 
 def train_naive_bayes_class_recognizer(counter: dict, total_token: int) -> dict:
@@ -59,32 +71,38 @@ def train_naive_bayes_class_recognizer(counter: dict, total_token: int) -> dict:
     return recognizer
 
 
-def naive_bayes_class_recognizer(vector_folder_path, vocab_path):
-    counter = initialize_counter(vocab_path)
-    aggregate_vectors_into_counter(counter, vector_folder_path)
-    total_token = sum(counter.values())
-    class_recognizer = train_naive_bayes_class_recognizer(counter, total_token)
+def naive_bayes(training_file_path, result_model_path, vocab_path="", class_1="pos", class_2="neg"):
+    vocabs = load_vocab(vocab_path)
+    counter = {
+        class_1: {
+            'counter': initialize_counter(vocabs),
+            'total_token': 0,
+            'class_recognizer': None,
+            'prior_prob': 0
+        },
+        class_2: {
+            'counter': initialize_counter(vocabs),
+            'total_token': 0
+        },
+    }
 
-    return class_recognizer, total_token
+    for class_type, vector in training_file_decoder(training_file_path):
+        counter[class_type].total_token += aggregate_vector_into_counter(counter[class_type].counter, vector)
 
-
-def naive_bayes(class_1_folder_path, class_2_folder_path, result_model_path, class_1="pos", class_2="neg",
-                vocab_path=""):
-    class_1_recognizer, class_1_total_token = naive_bayes_class_recognizer(class_1_folder_path, vocab_path)
-    class_2_recognizer, class_2_total_token = naive_bayes_class_recognizer(class_2_folder_path, vocab_path)
-
-    class_1_prior_prob = class_1_total_token / (class_1_total_token + class_2_total_token)
-    class_2_prior_prob = class_2_total_token / (class_1_total_token + class_2_total_token)
-
-    naive_bayes_classifier = {class_1: class_1_recognizer,
-                              class_2: class_2_recognizer,
-                              f'{class_1}_prior': class_1_prior_prob,
-                              f'{class_2}_prior': class_2_prior_prob,
+    total_token = counter[class_1].total_token + counter[class_2].total_token
+    naive_bayes_classifier = {class_1: train_naive_bayes_class_recognizer(counter[class_1].counter,
+                                                                          counter[class_1].total_token
+                                                                          ),
+                              class_2: train_naive_bayes_class_recognizer(counter[class_2].counter,
+                                                                          counter[class_2].total_token
+                                                                          ),
+                              f'{class_1}_prior': counter[class_1].total_token / total_token,
+                              f'{class_2}_prior': counter[class_2].total_token / total_token,
                               "class_1": class_1,
                               "class_2": class_2
                               }
 
-    save_file(naive_bayes_classifier, result_model_path)
+    save_model(naive_bayes_classifier, result_model_path)
     return naive_bayes_classifier
 
 
@@ -216,6 +234,5 @@ def problem_2d():
 
     accuracy = (total_est - incorrect_est_count) / total_est
     print(accuracy)
-
 
 # problem_2d()
