@@ -1,7 +1,7 @@
 import os
 import json
 
-from pre_process import preprocess_comment, preprocess_folder, preprocess_file
+from pre_process import preprocess_comment, preprocess, preprocess_file
 
 
 # --------------------------------------------------- load file ------------------------------------------------------ #
@@ -43,11 +43,11 @@ def initialize_counter(vocabs) -> dict:
     return {vocab: 0 for vocab in vocabs}
 
 
-def training_file_decoder(training_file_path: str):
+def preprocessed_file_decoder(training_file_path: str):
     with open(training_file_path) as file:
         line = file.readline()
         while line:
-            line = line.trim()
+            line = line.rstrip('\n')
             line = line.split('#####')
             class_type, vector = line[0], json.loads(line[1])
             yield class_type, vector
@@ -86,18 +86,18 @@ def naive_bayes(training_file_path, result_model_path, vocab_path="", class_1="p
         },
     }
 
-    for class_type, vector in training_file_decoder(training_file_path):
-        counter[class_type].total_token += aggregate_vector_into_counter(counter[class_type].counter, vector)
+    for class_type, vector in preprocessed_file_decoder(training_file_path):
+        counter[class_type]['total_token'] += aggregate_vector_into_counter(counter[class_type]['counter'], vector)
 
-    total_token = counter[class_1].total_token + counter[class_2].total_token
-    naive_bayes_classifier = {class_1: train_naive_bayes_class_recognizer(counter[class_1].counter,
-                                                                          counter[class_1].total_token
+    total_token = counter[class_1]['total_token'] + counter[class_2]['total_token']
+    naive_bayes_classifier = {class_1: train_naive_bayes_class_recognizer(counter[class_1]['counter'],
+                                                                          counter[class_1]['total_token']
                                                                           ),
-                              class_2: train_naive_bayes_class_recognizer(counter[class_2].counter,
-                                                                          counter[class_2].total_token
+                              class_2: train_naive_bayes_class_recognizer(counter[class_2]['counter'],
+                                                                          counter[class_2]['total_token']
                                                                           ),
-                              f'{class_1}_prior': counter[class_1].total_token / total_token,
-                              f'{class_2}_prior': counter[class_2].total_token / total_token,
+                              f'{class_1}_prior': counter[class_1]['total_token'] / total_token,
+                              f'{class_2}_prior': counter[class_2]['total_token'] / total_token,
                               "class_1": class_1,
                               "class_2": class_2
                               }
@@ -109,10 +109,10 @@ def naive_bayes(training_file_path, result_model_path, vocab_path="", class_1="p
 # ----------------------------------------------- evaluate test data ------------------------------------------------ #
 
 def extract_exponent_float(float_number: float) -> int:
-    str_float_number = str(float_number).split('e')
-    if len(str_float_number) == 0:
+    float_number = str(float_number).split('e')
+    if len(float_number) == 0:
         return 0
-    return int(str_float_number[1])
+    return int(float_number[1])
 
 
 def reduce_exponent():
@@ -163,51 +163,47 @@ class NaiveBayesClassifier:
 
 # Train a classifier use a small corpus
 def problem_2b():
-    preprocess_folder(folder_path="./data/movie_review_small/action",
-                      output_folder="./preprocessed/movie_review_small/action",
-                      vocab_path="./data/movie_review_small/movie_review_small.vocab"
-                      )
-    preprocess_folder(folder_path="./data/movie_review_small/comedy",
-                      output_folder="./preprocessed/movie_review_small/comedy",
-                      vocab_path="./data/movie_review_small/movie_review_small.vocab"
-                      )
+    preprocess(folder_path1="./data/movie_review_small/action",
+               folder_path2="./data/movie_review_small/comedy",
+               vocab_path="./data/movie_review_small/movie_review_small.vocab",
+               path1_class="action",
+               path2_class="comedy",
+               output_path="./preprocessed/movie_review_small.txt"
+               )
 
-    naive_bayes(class_1_folder_path="./preprocessed/movie_review_small/action",
-                class_2_folder_path="./preprocessed/movie_review_small/comedy",
-                result_model_path="./models/movie_review_small.NB",
+    naive_bayes(training_file_path="./preprocessed/movie_review_small.txt",
+                result_model_path="models/movie_review_small.NB",
                 class_1="action",
                 class_2="comedy",
-                vocab_path="./data/movie_review_small/movie_review_small.vocab"
+                vocab_path="./data/movie_review_small/movie_review_small.vocab",
                 )
 
 
 def problem_2c():
     comment = "fast, couple, shoot, fly"
-    naive_bayes_classifier = NaiveBayesClassifier(path_to_model='./models/movie_review_small.NB')
+    naive_bayes_classifier = NaiveBayesClassifier(path_to_model='models/movie_review_small.NB')
     class_estimation = naive_bayes_classifier.classify(comment)
 
     print(f"Class of sentence {comment} is: {class_estimation}")
 
 
 def problem_2d():
-    # # preprocess training data and train model
-    # preprocess_folder(folder_path="./data/train/pos",
-    #                   output_folder="./preprocessed/train/pos",
-    #                   vocab_path="./data/imdb.vocab"
-    #                   )
-    # preprocess_folder(folder_path="./data/train/neg",
-    #                   output_folder="./preprocessed/train/neg",
-    #                   vocab_path="./data/imdb.vocab"
-    #                   )
-    #
-    # model = naive_bayes(class_1_folder_path="./preprocessed/train/pos",
-    #                     class_2_folder_path="./preprocessed/train/neg",
-    #                     result_model_path="./models/movie_review_BOW.NB",
-    #                     class_1="pos",
-    #                     class_2="neg",
-    #                     vocab_path="./data/imdb.vocab"
-    #                     )
-    #
+    # preprocess training data and train model
+    preprocess(folder_path1="./data/train/pos",
+               folder_path2="./data/train/neg",
+               vocab_path="./data/imdb.vocab",
+               path1_class="pos",
+               path2_class="neg",
+               output_path="./preprocessed/movie_review_BOW.txt"
+               )
+
+    naive_bayes(training_file_path="./preprocessed/movie_review_small.txt",
+                result_model_path="models/movie_review_BOW.NB",
+                class_1="action",
+                class_2="comedy",
+                vocab_path="./data/movie_review_small/movie_review_small.vocab",
+                )
+
     naive_bayes_classifier = NaiveBayesClassifier(path_to_model='./models/movie_review_BOW.NB')
     pos_test_folder = './data/test/pos'
     neg_test_folder = './data/test/neg'
