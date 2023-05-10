@@ -164,9 +164,6 @@ class NaiveBayesClassifier:
         class_1_prob = compute_prob(word_list, self.model[self.class_1], self.model[f"{self.class_1}_prior"])
         class_2_prob = compute_prob(word_list, self.model[self.class_2], self.model[f"{self.class_2}_prior"])
 
-        # print(self.class_1, "probability is", class_1_prob)
-        # print(self.class_2, "probability is", class_2_prob)
-
         return self.class_1 if class_1_prob > class_2_prob else self.class_2
 
 
