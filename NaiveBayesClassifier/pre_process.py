@@ -43,6 +43,24 @@ def separate_punctuation(comment: str) -> str:
     return ' '.join(res)
 
 
+def contains_strong_pos_word(words:list) -> bool:
+    positive_words = {'excellent', 'amazing', 'great', 'fantastic', 'outstanding', 'terrific', 'phenomenal', 'superb',
+                      'brilliant', 'impressive'}
+    for word in words:
+        if word in positive_words:
+            return True
+    return False
+
+
+def contains_strong_neg_word(words: list) -> bool:
+    negative_words = {'disappointing', 'terrible', 'awful', 'horrible', 'dreadful', 'abysmal', 'appalling', 'atrocious',
+                      'repulsive', 'disgusting'}
+    for word in words:
+        if word in negative_words:
+            return True
+    return False
+
+
 def preprocess_comment(comment: str) -> str:
     return separate_punctuation(lowercase_sentence(comment))
 
@@ -83,25 +101,9 @@ def preprocess(folder_path1, folder_path2, vocab_path, path1_class, path2_class,
 
     res = []
     for vector in folder_path1_vectors:
-        res.append(f'{path1_class}#####{json.dumps(vector)}')
+        res.append(f'{path1_class}#####{json.dumps(vector)}#####{int(contains_strong_pos_word(list(vector.keys())))}#####{int(contains_strong_neg_word(list(vector.keys())))}')
     for vector in folder_path2_vectors:
-        res.append(f'{path2_class}#####{json.dumps(vector)}')
+        res.append(f'{path2_class}#####{json.dumps(vector)}#####{int(contains_strong_pos_word(list(vector.keys())))}#####{int(contains_strong_neg_word(list(vector.keys())))}')
     save_file('\n'.join(res), output_path)
 
 
-# ---------------------------------------------------- testing  ----------------------------------------------------- #
-
-
-def testing():
-
-    preprocess(folder_path1='./data/train/neg',
-               folder_path2='./data/train/pos',
-               vocab_path="./data/imdb.vocab",
-               path1_class='neg',
-               path2_class='pos',
-               output_path='./preprocessed/train_BOW.txt'
-               )
-
-
-# preprocess_folder('./data/train/neg', './preprocessed/neg')
-# preprocess_folder('./data/train/pos', './preprocessed/pos')

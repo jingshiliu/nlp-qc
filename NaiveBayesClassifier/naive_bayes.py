@@ -1,5 +1,6 @@
 import os
 import json
+import decimal
 
 from pre_process import preprocess_comment, preprocess, preprocess_file
 
@@ -17,6 +18,11 @@ def load_vocab(vocab_path) -> set:
 def save_model(file_content, file_path):
     with open(file_path, 'w') as file:
         json.dump(file_content, file)
+
+
+def save_file(file_content, file_path):
+    with open(file_path, 'w') as file:
+        file.write(file_content)
 
 
 def load_json(file_path: str) -> dict:
@@ -49,16 +55,28 @@ def preprocessed_file_decoder(training_file_path: str):
         while line:
             line = line.rstrip('\n')
             line = line.split('#####')
-            class_type, vector = line[0], json.loads(line[1])
-            yield class_type, vector
+            yield line[0], json.loads(line[1]), bool(line[2]), bool(line[3])
             line = file.readline()
 
 
-def aggregate_vector_into_counter(counter: dict, vector: dict):
+def aggregate_vector_into_counter(counter: dict, vector: dict, class_type, contains_strong_pos_word, contains_strong_neg_word):
     total_token = 0
     for word, freq in vector.items():
         counter[word] += freq
         total_token += freq
+
+    if class_type == 'pos' and contains_strong_pos_word or class_type == 'neg' and contains_strong_neg_word:
+        for word, freq in vector.items():
+            counter[word] += 100
+            total_token += 100
+    else:
+        for word, freq in vector.items():
+            if counter[word] > 100:
+                counter[word] -= 100
+                total_token -= 100
+            else:
+                total_token -= counter[word]
+                counter[word] = 0
     return total_token
 
 
@@ -86,8 +104,13 @@ def naive_bayes(training_file_path, result_model_path, vocab_path="", class_1="p
         },
     }
 
-    for class_type, vector in preprocessed_file_decoder(training_file_path):
-        counter[class_type]['total_token'] += aggregate_vector_into_counter(counter[class_type]['counter'], vector)
+    for class_type, vector, contains_strong_pos_word, contains_strong_neg_word in preprocessed_file_decoder(training_file_path):
+        counter[class_type]['total_token'] += aggregate_vector_into_counter(counter[class_type]['counter'],
+                                                                            vector,
+                                                                            class_type,
+                                                                            contains_strong_pos_word,
+                                                                            contains_strong_neg_word
+                                                                            )
 
     total_token = counter[class_1]['total_token'] + counter[class_2]['total_token']
     naive_bayes_classifier = {class_1: train_naive_bayes_class_recognizer(counter[class_1]['counter'],
@@ -108,28 +131,16 @@ def naive_bayes(training_file_path, result_model_path, vocab_path="", class_1="p
 
 # ----------------------------------------------- evaluate test data ------------------------------------------------ #
 
-def extract_exponent_float(float_number: float) -> int:
-    float_number = str(float_number).split('e')
-    if len(float_number) == 0:
-        return 0
-    return int(float_number[1])
-
-
-def reduce_exponent():
-    pass
-
-
-def compute_prob(comment: str | list, class_recognizer: dict, prior_prob: float) -> float:
+def compute_prob(comment: str | list, class_recognizer: dict, prior_prob: float) -> decimal.Decimal:
     if type(comment) is str:
         comment = comment.split()
 
     # the min of a float is around 1e-310, it's very likely to have the prob of the sentence less than this
-    prob = prior_prob
-    exponent = 0
+    prob = decimal.Decimal(prior_prob)
     for word in comment:
         if word not in class_recognizer:
             continue
-        prob *= class_recognizer[word]
+        prob = prob * decimal.Decimal(class_recognizer[word])
     return prob
 
 
@@ -153,8 +164,8 @@ class NaiveBayesClassifier:
         class_1_prob = compute_prob(word_list, self.model[self.class_1], self.model[f"{self.class_1}_prior"])
         class_2_prob = compute_prob(word_list, self.model[self.class_2], self.model[f"{self.class_2}_prior"])
 
-        print(self.class_1, "probability is", class_1_prob)
-        print(self.class_2, "probability is", class_2_prob)
+        # print(self.class_1, "probability is", class_1_prob)
+        # print(self.class_2, "probability is", class_2_prob)
 
         return self.class_1 if class_1_prob > class_2_prob else self.class_2
 
@@ -197,11 +208,11 @@ def problem_2d():
                output_path="./preprocessed/movie_review_BOW.txt"
                )
 
-    naive_bayes(training_file_path="./preprocessed/movie_review_small.txt",
-                result_model_path="models/movie_review_BOW.NB",
-                class_1="action",
-                class_2="comedy",
-                vocab_path="./data/movie_review_small/movie_review_small.vocab",
+    naive_bayes(training_file_path="./preprocessed/movie_review_BOW.txt",
+                result_model_path="./models/movie_review_BOW.NB",
+                class_1="pos",
+                class_2="neg",
+                vocab_path="./data/imdb.vocab",
                 )
 
     naive_bayes_classifier = NaiveBayesClassifier(path_to_model='./models/movie_review_BOW.NB')
@@ -211,24 +222,27 @@ def problem_2d():
     neg_test_files = os.listdir(neg_test_folder)
 
     result = []  # [[estimation, comment],...]
-    incorrect_est_count = 0
+    incorrect = []
     total_est = len(neg_test_files) + len(pos_test_files)
 
     for file in pos_test_files:
         comment = preprocess_file(file_path=f'{pos_test_folder}/{file}')
         class_est = naive_bayes_classifier.classify(comment)
-        result.append([class_est, comment])
+        result.append(f'{class_est}    {comment}')
         if class_est != 'pos':
-            incorrect_est_count += 1
+            incorrect.append(f'{class_est}    {comment}')
 
     for file in neg_test_files:
         comment = preprocess_file(file_path=f'{neg_test_folder}/{file}')
         class_est = naive_bayes_classifier.classify(comment)
-        result.append([class_est, comment])
+        result.append(f'{class_est}    {comment}')
         if class_est != 'neg':
-            incorrect_est_count += 1
+            incorrect.append(f'{class_est}    {comment}')
 
-    accuracy = (total_est - incorrect_est_count) / total_est
-    print(accuracy)
+    accuracy = (total_est - len(incorrect)) / total_est
+    result.append(f'Accuracy: {accuracy}    Total Estimations: {total_est}    Incorrect Estimations: {len(incorrect)}')
+    save_file('\n'.join(result), './report.txt')
+    save_file('\n'.join(incorrect), './incorrect.txt')
 
-# problem_2d()
+problem_2d()
+
