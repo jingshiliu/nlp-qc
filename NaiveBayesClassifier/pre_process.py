@@ -15,7 +15,7 @@ def load_vocab(vocab_path):
 
 def save_file(file_content, file_path):
     with open(file_path, 'w') as file:
-        json.dump(file_content, file)
+        file.write(file_content)
 
 
 # ------------------------------------------------ preprocess files -------------------------------------------------- #
@@ -66,30 +66,42 @@ def build_bag_of_word_vector(comment: str, vocabs: set):
     return vector
 
 
-def preprocess_folder(folder_path: str, output_folder: str, vocab_path=""):
-    vocabs = load_vocab(vocab_path)
-
+def preprocess_folder(folder_path: str, vocabs):
+    vector_list = []
     for filename in os.listdir(folder_path):
         comment = preprocess_file(f'{folder_path}/{filename}')
-        vector = build_bag_of_word_vector(comment, vocabs)
-        save_file(vector, f'{output_folder}/{filename.split(".")[0]}.json')
+        vector_list.append(build_bag_of_word_vector(comment, vocabs))
+    return vector_list
+
+
+def preprocess(folder_path1, folder_path2, vocab_path, path1_class, path2_class, output_path):
+    # label######{json format of vector}
+    # ###### is the separator of column to access easier
+    vocabs = load_vocab(vocab_path)
+    folder_path1_vectors = preprocess_folder(folder_path1, vocabs)
+    folder_path2_vectors = preprocess_folder(folder_path2, vocabs)
+
+    res = []
+    for vector in folder_path1_vectors:
+        res.append(f'{path1_class}#####{json.dumps(vector)}')
+    for vector in folder_path2_vectors:
+        res.append(f'{path2_class}#####{json.dumps(vector)}')
+    save_file('\n'.join(res), output_path)
 
 
 # ---------------------------------------------------- testing  ----------------------------------------------------- #
 
 
 def testing():
-    output_folder = './preprocessed/neg'
-    filename = '10_2.txt'
-    vocabs = load_vocab()
-    comment = preprocess_file(f'./data/train/neg/{filename}')
-    print(comment)
-    vector = build_bag_of_word_vector(comment, vocabs)
-    print(vector)
 
-    save_file(vector, f'{output_folder}/{filename.split(".")[0]}.json')
+    preprocess(folder_path1='./data/train/neg',
+               folder_path2='./data/train/pos',
+               vocab_path="./data/imdb.vocab",
+               path1_class='neg',
+               path2_class='pos',
+               output_path='./preprocessed/train_BOW.txt'
+               )
 
 
-# testing()
 # preprocess_folder('./data/train/neg', './preprocessed/neg')
 # preprocess_folder('./data/train/pos', './preprocessed/pos')
