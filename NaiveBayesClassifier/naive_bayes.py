@@ -1,7 +1,7 @@
 import os
 import json
 
-from pre_process import preprocess_comment, preprocess_folder
+from pre_process import preprocess_comment, preprocess_folder, preprocess_file
 
 
 # --------------------------------------------------- load file ------------------------------------------------------ #
@@ -68,7 +68,8 @@ def naive_bayes_class_recognizer(vector_folder_path, vocab_path):
     return class_recognizer, total_token
 
 
-def naive_bayes(class_1_folder_path, class_2_folder_path, result_model_path, class_1="pos", class_2="neg", vocab_path=""):
+def naive_bayes(class_1_folder_path, class_2_folder_path, result_model_path, class_1="pos", class_2="neg",
+                vocab_path=""):
     class_1_recognizer, class_1_total_token = naive_bayes_class_recognizer(class_1_folder_path, vocab_path)
     class_2_recognizer, class_2_total_token = naive_bayes_class_recognizer(class_2_folder_path, vocab_path)
 
@@ -89,11 +90,24 @@ def naive_bayes(class_1_folder_path, class_2_folder_path, result_model_path, cla
 
 # ----------------------------------------------- evaluate test data ------------------------------------------------ #
 
+def extract_exponent_float(float_number: float) -> int:
+    str_float_number = str(float_number).split('e')
+    if len(str_float_number) == 0:
+        return 0
+    return int(str_float_number[1])
+
+
+def reduce_exponent():
+    pass
+
+
 def compute_prob(comment: str | list, class_recognizer: dict, prior_prob: float) -> float:
     if type(comment) is str:
         comment = comment.split()
 
+    # the min of a float is around 1e-310, it's very likely to have the prob of the sentence less than this
     prob = prior_prob
+    exponent = 0
     for word in comment:
         if word not in class_recognizer:
             continue
@@ -156,4 +170,52 @@ def problem_2c():
 
     print(f"Class of sentence {comment} is: {class_estimation}")
 
-problem_2c()
+
+def problem_2d():
+    # # preprocess training data and train model
+    # preprocess_folder(folder_path="./data/train/pos",
+    #                   output_folder="./preprocessed/train/pos",
+    #                   vocab_path="./data/imdb.vocab"
+    #                   )
+    # preprocess_folder(folder_path="./data/train/neg",
+    #                   output_folder="./preprocessed/train/neg",
+    #                   vocab_path="./data/imdb.vocab"
+    #                   )
+    #
+    # model = naive_bayes(class_1_folder_path="./preprocessed/train/pos",
+    #                     class_2_folder_path="./preprocessed/train/neg",
+    #                     result_model_path="./models/movie_review_BOW.NB",
+    #                     class_1="pos",
+    #                     class_2="neg",
+    #                     vocab_path="./data/imdb.vocab"
+    #                     )
+    #
+    naive_bayes_classifier = NaiveBayesClassifier(path_to_model='./models/movie_review_BOW.NB')
+    pos_test_folder = './data/test/pos'
+    neg_test_folder = './data/test/neg'
+    pos_test_files = os.listdir(pos_test_folder)
+    neg_test_files = os.listdir(neg_test_folder)
+
+    result = []  # [[estimation, comment],...]
+    incorrect_est_count = 0
+    total_est = len(neg_test_files) + len(pos_test_files)
+
+    for file in pos_test_files:
+        comment = preprocess_file(file_path=f'{pos_test_folder}/{file}')
+        class_est = naive_bayes_classifier.classify(comment)
+        result.append([class_est, comment])
+        if class_est != 'pos':
+            incorrect_est_count += 1
+
+    for file in neg_test_files:
+        comment = preprocess_file(file_path=f'{neg_test_folder}/{file}')
+        class_est = naive_bayes_classifier.classify(comment)
+        result.append([class_est, comment])
+        if class_est != 'neg':
+            incorrect_est_count += 1
+
+    accuracy = (total_est - incorrect_est_count) / total_est
+    print(accuracy)
+
+
+# problem_2d()
